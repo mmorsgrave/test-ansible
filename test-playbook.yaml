@@ -1,0 +1,88 @@
+---
+
+- name: Install wordpress
+  hosts: all
+  
+  vars:
+    - work_dir: /tmp/docker_temp
+
+  tasks:
+    - name: Install packages 
+      package:
+        name: 
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+    
+    - name: Add Docker's official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+    
+    - name: Set up the stable repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu impish stable
+        filename: docker.list
+        state: present
+
+    - name: Install Docker Engine
+      package:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Install docker-compose
+      copy:
+        src: ./docker-compose
+        dest: /usr/local/bin/docker-compose
+        owner: root
+        group: root
+        mode: 0755
+
+    - name: Create docker work dir
+      file:
+        path: "{{ work_dir }}"
+        state: directory
+
+    - name: Copy NGINX config file
+      copy:
+        src: ./default.conf
+        dest: "{{ work_dir }}/default.conf"
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Copy Docker compose file
+      copy: 
+        src: ./docker-compose.yml
+        dest: "{{ work_dir }}/docker-compose.yml"
+        owner: root
+        group: root
+        mode: 0644
+     
+    - name: Create docker volumes dir
+      file: 
+        path: "{{ item }}" 
+        state: directory
+      loop:
+        - "{{ work_dir }}/wordpress/wp-content"
+        - "{{ work_dir }}/mdb"
+    
+    - name: Create docker volume file
+      file: 
+        path: "{{ work_dir }}/wordpress/wp-config.php"
+        state: touch
+
+#    - name: Create and start services
+#      docker_compose:
+#        project_src: /tmp/docker_temp/
+#        files: /tmp/docker_temp/docker-compose.yml
+
+    - name: Run docker compose
+      command: docker-compose up -d
+      args:  
+        chdir: "{{ work_dir }}"
